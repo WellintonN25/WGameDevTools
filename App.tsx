@@ -7,11 +7,12 @@ import PixelArtGenerator from './components/PixelArtGenerator';
 import AnimatedSpriteGenerator from './components/AnimatedSpriteGenerator';
 import ImageEnhancer from './components/ImageEnhancer';
 import AnimationMaker from './components/AnimationMaker';
+import BatchBackgroundRemover from './components/BatchBackgroundRemover';
 import { CapturedFrame } from './types';
-import { UploadIcon, CameraIcon, SparklesIcon, ChevronRightIcon, WandIcon, WindIcon, GridIcon, AnimationIcon } from './components/Icons';
+import { UploadIcon, CameraIcon, SparklesIcon, ChevronRightIcon, WandIcon, WindIcon, GridIcon, AnimationIcon, LayersIcon } from './components/Icons';
 import { analyzeFrame } from './services/geminiService';
 
-type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator' | 'image-enhancer' | 'animation-maker';
+type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator' | 'image-enhancer' | 'animation-maker' | 'batch-bg-remover';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
@@ -274,6 +275,29 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Batch BG Remover Card */}
+              <div 
+                onClick={() => setCurrentView('batch-bg-remover')}
+                className="group relative bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1 active:scale-95"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative">
+                  <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-colors">
+                    <LayersIcon />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors">
+                    Batch BG Remover
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                    Remove background from multiple images at once. Download as individual files or ZIP archive.
+                  </p>
+                  <div className="flex items-center text-indigo-400 font-medium text-sm group-hover:gap-2 transition-all">
+                    <span>Launch Tool</span>
+                    <ChevronRightIcon />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -469,6 +493,24 @@ const App: React.FC = () => {
             </div>
             
             <AnimationMaker />
+          </div>
+        )}
+
+        {/* Batch BG Remover Tool View */}
+        {currentView === 'batch-bg-remover' && (
+          <div className="animate-fade-in">
+            <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+              <span 
+                onClick={() => setCurrentView('home')} 
+                className="hover:text-indigo-400 cursor-pointer transition-colors"
+              >
+                Home
+              </span>
+              <span>/</span>
+              <span className="text-indigo-400">Batch BG Remover</span>
+            </div>
+            
+            <BatchBackgroundRemover />
           </div>
         )}
 

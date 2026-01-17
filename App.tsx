@@ -4,11 +4,12 @@ import FrameGallery from './components/FrameGallery';
 import VideoBackgroundRemover from './components/VideoBackgroundRemover';
 import SmartWarpTool from './components/SmartWarpTool';
 import PixelArtGenerator from './components/PixelArtGenerator';
+import AnimatedSpriteGenerator from './components/AnimatedSpriteGenerator';
 import { CapturedFrame } from './types';
-import { UploadIcon, CameraIcon, SparklesIcon, ChevronRightIcon, WandIcon, WindIcon, GridIcon } from './components/Icons';
+import { UploadIcon, CameraIcon, SparklesIcon, ChevronRightIcon, WandIcon, WindIcon, GridIcon, AnimationIcon } from './components/Icons';
 import { analyzeFrame } from './services/geminiService';
 
-type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art';
+type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
@@ -202,6 +203,29 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Animated Sprite Generator Card */}
+              <div 
+                onClick={() => setCurrentView('sprite-animator')}
+                className="group relative bg-slate-900 border border-slate-800 hover:border-purple-500/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 hover:-translate-y-1 active:scale-95"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-fuchsia-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative">
+                  <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center mb-4 group-hover:bg-purple-500/20 group-hover:text-purple-400 transition-colors">
+                    <AnimationIcon />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">
+                    Sprite Animator AI
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                    Transform static images into animated sprites. Generate 8/10/12 frames with AI-powered motion.
+                  </p>
+                  <div className="flex items-center text-purple-400 font-medium text-sm group-hover:gap-2 transition-all">
+                    <span>Launch Tool</span>
+                    <ChevronRightIcon />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -339,6 +363,26 @@ const App: React.FC = () => {
             
             <section className="min-h-[300px] flex flex-col">
               <PixelArtGenerator />
+            </section>
+          </div>
+        )}
+
+        {/* Animated Sprite Generator Tool View */}
+        {currentView === 'sprite-animator' && (
+          <div className="space-y-6 sm:space-y-8 animate-fade-in">
+             <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+              <span 
+                onClick={() => setCurrentView('home')} 
+                className="hover:text-purple-400 cursor-pointer transition-colors"
+              >
+                Home
+              </span>
+              <span>/</span>
+              <span className="text-purple-400">Sprite Animator AI</span>
+            </div>
+            
+            <section className="min-h-[300px] flex flex-col">
+              <AnimatedSpriteGenerator />
             </section>
           </div>
         )}

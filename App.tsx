@@ -5,11 +5,12 @@ import VideoBackgroundRemover from './components/VideoBackgroundRemover';
 import SmartWarpTool from './components/SmartWarpTool';
 import PixelArtGenerator from './components/PixelArtGenerator';
 import AnimatedSpriteGenerator from './components/AnimatedSpriteGenerator';
+import ImageEnhancer from './components/ImageEnhancer';
 import { CapturedFrame } from './types';
 import { UploadIcon, CameraIcon, SparklesIcon, ChevronRightIcon, WandIcon, WindIcon, GridIcon, AnimationIcon } from './components/Icons';
 import { analyzeFrame } from './services/geminiService';
 
-type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator';
+type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator' | 'image-enhancer';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
@@ -226,9 +227,33 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Image Enhancer HD Card */}
+              <div 
+                onClick={() => setCurrentView('image-enhancer')}
+                className="group relative bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/10 hover:-translate-y-1 active:scale-95"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-teal-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative">
+                  <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center mb-4 group-hover:bg-cyan-500/20 group-hover:text-cyan-400 transition-colors">
+                    <SparklesIcon />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-cyan-300 transition-colors">
+                    Image Enhancer HD
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                    Upscale and enhance images up to 8x. Apply sharpening, noise reduction, and advanced filters.
+                  </p>
+                  <div className="flex items-center text-cyan-400 font-medium text-sm group-hover:gap-2 transition-all">
+                    <span>Launch Tool</span>
+                    <ChevronRightIcon />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
+
 
         {/* FrameSnap Tool View */}
         {currentView === 'framesnap' && (
@@ -384,6 +409,24 @@ const App: React.FC = () => {
             <section className="min-h-[300px] flex flex-col">
               <AnimatedSpriteGenerator />
             </section>
+          </div>
+        )}
+
+        {/* Image Enhancer HD Tool View */}
+        {currentView === 'image-enhancer' && (
+          <div className="animate-fade-in">
+            <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+              <span 
+                onClick={() => setCurrentView('home')} 
+                className="hover:text-cyan-400 cursor-pointer transition-colors"
+              >
+                Home
+              </span>
+              <span>/</span>
+              <span className="text-cyan-400">Image Enhancer HD</span>
+            </div>
+            
+            <ImageEnhancer />
           </div>
         )}
 

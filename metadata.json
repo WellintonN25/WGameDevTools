@@ -1,0 +1,7 @@
+{
+  "name": "Wellinton Game Dev Tools",
+  "description": "A developer toolkit featuring FrameSnap AI for video frame extraction and analysis.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -98,27 +98,32 @@ const PixelArtGenerator: React.FC = () => {
 
     // 2. DRAW SEGMENTATION MASK & IMAGE (With Adjustments)
     ctx.save();
-    // Apply filters to the SOURCE image drawing
     ctx.filter = `contrast(${currentContrast}) saturate(${currentSat})`;
-    
-    // Draw Mask
     ctx.drawImage(results.segmentationMask, 0, 0, width, height);
-    
-    // Composite Source
     ctx.globalCompositeOperation = 'source-in';
     ctx.drawImage(results.image, 0, 0, width, height);
     ctx.restore();
 
-    // 3. PIXELATION PIPELINE
+    // 3. ADVANCED PIXELATION PIPELINE
     
-    // Determine target dimensions
-    let targetWidth = 240;
-    if (currentBitStyle === '16bit') targetWidth = 64; 
-    if (currentBitStyle === '32bit') targetWidth = 128;
-    if (currentBitStyle === '64bit') targetWidth = 256;
+    // Determine pixel size based on bit style
+    let pixelSize = 4;
+    let paletteSize = 256;
+    if (currentBitStyle === '16bit') { 
+        pixelSize = 16;
+        paletteSize = 16;
+    }
+    if (currentBitStyle === '32bit') { 
+        pixelSize = 8;
+        paletteSize = 64;
+    }
+    if (currentBitStyle === '64bit') { 
+        pixelSize = 4;
+        paletteSize = 256;
+    }
 
-    const ratio = width / height;
-    const targetHeight = Math.floor(targetWidth / ratio);
+    const targetWidth = Math.floor(width / pixelSize);
+    const targetHeight = Math.floor(height / pixelSize);
 
     // Offscreen Canvas for Downscaling
     const offCanvas = document.createElement('canvas');
@@ -128,14 +133,26 @@ const PixelArtGenerator: React.FC = () => {
     
     if (offCtx) {
         offCtx.imageSmoothingEnabled = false;
-        // Draw Isolated Subject Downscaled
         offCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight);
 
         const imageData = offCtx.getImageData(0, 0, targetWidth, targetHeight);
         const data = imageData.data;
-        const originalData = new Uint8ClampedArray(data); // Copy for reference
+        const originalData = new Uint8ClampedArray(data);
 
-        // Parse Outline Color if present
+        // Build color palette using k-means clustering
+        let palette: number[][] = [];
+        if (currentQuant) {
+            const colors: number[][] = [];
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i+3] > 10) {
+                    colors.push([data[i], data[i+1], data[i+2]]);
+                }
+            }
+            
+            palette = kMeansPalette(colors, Math.min(paletteSize, colors.length));
+        }
+
+        // Parse Outline Color
         let outlineR = 0, outlineG = 0, outlineB = 0;
         if (currentOutline) {
             const hex = currentOutline.replace('#', '');
@@ -144,34 +161,39 @@ const PixelArtGenerator: React.FC = () => {
             outlineB = parseInt(hex.substring(4, 6), 16);
         }
 
-        // Color Levels
-        const levels = currentBitStyle === '16bit' ? 4 : (currentBitStyle === '32bit' ? 8 : 16);
-        const step = 255 / (levels - 1);
-
-        for (let y = 0; y < targetHeight; y++) {
-            for (let x = 0; x < targetWidth; x++) {
-                const i = (y * targetWidth + x) * 4;
-                
-                // Color Quantization
-                if (currentQuant && data[i+3] > 10) {
-                    data[i] = Math.floor(data[i] / step) * step;     // R
-                    data[i+1] = Math.floor(data[i+1] / step) * step; // G
-                    data[i+2] = Math.floor(data[i+2] / step) * step; // B
+        // Apply palette reduction
+        if (currentQuant && palette.length > 0) {
+            for (let y = 0; y < targetHeight; y++) {
+                for (let x = 0; x < targetWidth; x++) {
+                    const i = (y * targetWidth + x) * 4;
+                    
+                    if (data[i+3] > 10) {
+                        const color = [data[i], data[i+1], data[i+2]];
+                        const nearest = findNearestColor(color, palette);
+                        data[i] = nearest[0];
+                        data[i+1] = nearest[1];
+                        data[i+2] = nearest[2];
+                    }
                 }
+            }
+        }
 
-                // Outline Logic: Check neighbors on ORIGINAL data to find edges
-                if (currentOutline) {
+        // Outline detection
+        if (currentOutline) {
+            for (let y = 0; y < targetHeight; y++) {
+                for (let x = 0; x < targetWidth; x++) {
+                    const i = (y * targetWidth + x) * 4;
                     const isTransparent = originalData[i+3] < 50;
+                    
                     if (isTransparent) {
-                        // Check neighbors
-                        let hasOpaqueNeighbor = false;
                         const neighbors = [
-                            ((y-1) * targetWidth + x) * 4, // Up
-                            ((y+1) * targetWidth + x) * 4, // Down
-                            (y * targetWidth + (x-1)) * 4, // Left
-                            (y * targetWidth + (x+1)) * 4  // Right
+                            ((y-1) * targetWidth + x) * 4,
+                            ((y+1) * targetWidth + x) * 4,
+                            (y * targetWidth + (x-1)) * 4,
+                            (y * targetWidth + (x+1)) * 4
                         ];
 
+                        let hasOpaqueNeighbor = false;
                         for (const ni of neighbors) {
                             if (ni >= 0 && ni < originalData.length && originalData[ni+3] > 50) {
                                 hasOpaqueNeighbor = true;
@@ -183,7 +205,7 @@ const PixelArtGenerator: React.FC = () => {
                             data[i] = outlineR;
                             data[i+1] = outlineG;
                             data[i+2] = outlineB;
-                            data[i+3] = 255; // Solid Outline
+                            data[i+3] = 255;
                         }
                     }
                 }
@@ -192,15 +214,159 @@ const PixelArtGenerator: React.FC = () => {
         
         offCtx.putImageData(imageData, 0, 0);
 
-        // Upscale back to main
+        // AUTO-CROP: Find bounds of non-transparent pixels
+        let minX = targetWidth, minY = targetHeight, maxX = 0, maxY = 0;
+        for (let y = 0; y < targetHeight; y++) {
+            for (let x = 0; x < targetWidth; x++) {
+                const i = (y * targetWidth + x) * 4;
+                if (imageData.data[i+3] > 10) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        // Add padding (10% on each side)
+        const padding = Math.max(2, Math.floor((maxX - minX) * 0.1));
+        minX = Math.max(0, minX - padding);
+        minY = Math.max(0, minY - padding);
+        maxX = Math.min(targetWidth - 1, maxX + padding);
+        maxY = Math.min(targetHeight - 1, maxY + padding);
+
+        const cropWidth = maxX - minX + 1;
+        const cropHeight = maxY - minY + 1;
+
+        // Create cropped canvas
+        const croppedCanvas = document.createElement('canvas');
+        croppedCanvas.width = cropWidth;
+        croppedCanvas.height = cropHeight;
+        const croppedCtx = croppedCanvas.getContext('2d')!;
+        croppedCtx.drawImage(offCanvas, minX, minY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+        // Upscale cropped image to fill canvas
         ctx.clearRect(0, 0, width, height);
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(offCanvas, 0, 0, width, height);
+        
+        // Calculate scale to fit canvas while maintaining aspect ratio
+        const scaleX = width / (cropWidth * pixelSize);
+        const scaleY = height / (cropHeight * pixelSize);
+        const scale = Math.min(scaleX, scaleY) * 0.95; // 95% to leave minimal margin
+        
+        const finalWidth = cropWidth * pixelSize * scale;
+        const finalHeight = cropHeight * pixelSize * scale;
+        const offsetX = (width - finalWidth) / 2;
+        const offsetY = (height - finalHeight) / 2;
+
+        // Draw each pixel from cropped canvas
+        const croppedData = croppedCtx.getImageData(0, 0, cropWidth, cropHeight);
+        const finalPixelSize = pixelSize * scale;
+        
+        for (let y = 0; y < cropHeight; y++) {
+            for (let x = 0; x < cropWidth; x++) {
+                const i = (y * cropWidth + x) * 4;
+                if (croppedData.data[i+3] > 0) {
+                    const r = croppedData.data[i];
+                    const g = croppedData.data[i+1];
+                    const b = croppedData.data[i+2];
+                    const a = croppedData.data[i+3] / 255;
+                    
+                    // Main pixel
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+                    ctx.fillRect(
+                        offsetX + x * finalPixelSize, 
+                        offsetY + y * finalPixelSize, 
+                        finalPixelSize, 
+                        finalPixelSize
+                    );
+                    
+                    // Subtle highlight for depth (only for larger pixels)
+                    if (finalPixelSize >= 6 && a > 0.5) {
+                        ctx.fillStyle = `rgba(255, 255, 255, 0.1)`;
+                        ctx.fillRect(
+                            offsetX + x * finalPixelSize, 
+                            offsetY + y * finalPixelSize, 
+                            finalPixelSize * 0.4, 
+                            finalPixelSize * 0.4
+                        );
+                    }
+                }
+            }
+        }
     }
 
     setProcessedImg(canvas.toDataURL('image/png'));
     setIsProcessing(false);
   };
+
+  // K-means clustering for palette reduction
+  function kMeansPalette(colors: number[][], k: number): number[][] {
+    if (colors.length === 0) return [];
+    if (colors.length <= k) return colors;
+    
+    // Initialize centroids randomly
+    const centroids: number[][] = [];
+    const step = Math.floor(colors.length / k);
+    for (let i = 0; i < k; i++) {
+      centroids.push([...colors[i * step]]);
+    }
+    
+    // Run k-means for 5 iterations (enough for pixel art)
+    for (let iter = 0; iter < 5; iter++) {
+      const clusters: number[][][] = Array(k).fill(null).map(() => []);
+      
+      // Assign colors to nearest centroid
+      for (const color of colors) {
+        let minDist = Infinity;
+        let bestCluster = 0;
+        
+        for (let j = 0; j < k; j++) {
+          const dist = colorDistance(color, centroids[j]);
+          if (dist < minDist) {
+            minDist = dist;
+            bestCluster = j;
+          }
+        }
+        
+        clusters[bestCluster].push(color);
+      }
+      
+      // Update centroids
+      for (let j = 0; j < k; j++) {
+        if (clusters[j].length > 0) {
+          const avgR = clusters[j].reduce((sum, c) => sum + c[0], 0) / clusters[j].length;
+          const avgG = clusters[j].reduce((sum, c) => sum + c[1], 0) / clusters[j].length;
+          const avgB = clusters[j].reduce((sum, c) => sum + c[2], 0) / clusters[j].length;
+          centroids[j] = [Math.round(avgR), Math.round(avgG), Math.round(avgB)];
+        }
+      }
+    }
+    
+    return centroids;
+  }
+
+  function findNearestColor(color: number[], palette: number[][]): number[] {
+    let minDist = Infinity;
+    let nearest = palette[0];
+    
+    for (const paletteColor of palette) {
+      const dist = colorDistance(color, paletteColor);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = paletteColor;
+      }
+    }
+    
+    return nearest;
+  }
+
+  function colorDistance(c1: number[], c2: number[]): number {
+    const dr = c1[0] - c2[0];
+    const dg = c1[1] - c2[1];
+    const db = c1[2] - c2[2];
+    return dr * dr + dg * dg + db * db;
+  }
 
   const handleDownload = () => {
     if (processedImg) {

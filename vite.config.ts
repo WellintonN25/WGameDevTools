@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
             display: 'standalone',
             start_url: '/WGameDevTools/',
             scope: '/WGameDevTools/',
-            orientation: 'landscape',
+            orientation: 'portrait',
             icons: [
               {
                 src: 'pwa-icon.svg',

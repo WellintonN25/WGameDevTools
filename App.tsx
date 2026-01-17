@@ -6,11 +6,12 @@ import SmartWarpTool from './components/SmartWarpTool';
 import PixelArtGenerator from './components/PixelArtGenerator';
 import AnimatedSpriteGenerator from './components/AnimatedSpriteGenerator';
 import ImageEnhancer from './components/ImageEnhancer';
+import AnimationMaker from './components/AnimationMaker';
 import { CapturedFrame } from './types';
 import { UploadIcon, CameraIcon, SparklesIcon, ChevronRightIcon, WandIcon, WindIcon, GridIcon, AnimationIcon } from './components/Icons';
 import { analyzeFrame } from './services/geminiService';
 
-type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator' | 'image-enhancer';
+type ViewState = 'home' | 'framesnap' | 'bg-remover' | 'smart-warp' | 'pixel-art' | 'sprite-animator' | 'image-enhancer' | 'animation-maker';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
@@ -250,6 +251,29 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              {/* Animation Maker Card */}
+              <div 
+                onClick={() => setCurrentView('animation-maker')}
+                className="group relative bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-rose-500/10 hover:-translate-y-1 active:scale-95"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-orange-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative">
+                  <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center mb-4 group-hover:bg-rose-500/20 group-hover:text-rose-400 transition-colors">
+                    <AnimationIcon />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-rose-300 transition-colors">
+                    Animation Maker
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                    Create animated GIFs and WebPs from multiple frames. Control FPS, ping-pong, and quality.
+                  </p>
+                  <div className="flex items-center text-rose-400 font-medium text-sm group-hover:gap-2 transition-all">
+                    <span>Launch Tool</span>
+                    <ChevronRightIcon />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -427,6 +451,24 @@ const App: React.FC = () => {
             </div>
             
             <ImageEnhancer />
+          </div>
+        )}
+
+        {/* Animation Maker Tool View */}
+        {currentView === 'animation-maker' && (
+          <div className="animate-fade-in">
+            <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+              <span 
+                onClick={() => setCurrentView('home')} 
+                className="hover:text-rose-400 cursor-pointer transition-colors"
+              >
+                Home
+              </span>
+              <span>/</span>
+              <span className="text-rose-400">Animation Maker</span>
+            </div>
+            
+            <AnimationMaker />
           </div>
         )}
 

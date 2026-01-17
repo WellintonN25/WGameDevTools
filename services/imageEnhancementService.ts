@@ -270,17 +270,46 @@ export async function processImage(
     reader.onload = (e) => {
       img.onload = () => {
         try {
-          // Create canvas with original image
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0);
+          const scale = options.scale || 1;
+          const maxDimension = 4096; // Max 4K resolution
+          const maxInputDimension = 2048; // Max input before auto-resize
           
-          let imageData = ctx.getImageData(0, 0, img.width, img.height);
+          let sourceWidth = img.width;
+          let sourceHeight = img.height;
+          
+          // Auto-resize large images to prevent memory errors
+          if (sourceWidth > maxInputDimension || sourceHeight > maxInputDimension) {
+            const ratio = Math.min(maxInputDimension / sourceWidth, maxInputDimension / sourceHeight);
+            sourceWidth = Math.floor(sourceWidth * ratio);
+            sourceHeight = Math.floor(sourceHeight * ratio);
+            
+            console.log(`Imagem redimensionada de ${img.width}x${img.height} para ${sourceWidth}x${sourceHeight} para processamento`);
+          }
+          
+          // Validate final size
+          if (sourceWidth * scale > maxDimension || sourceHeight * scale > maxDimension) {
+            reject(new Error(
+              `Imagem muito grande para upscale ${scale}x. Dimensão máxima: ${maxDimension}px. ` +
+              `Sua imagem resultaria em ${sourceWidth * scale}x${sourceHeight * scale}px. ` +
+              `Tente uma escala menor.`
+            ));
+            return;
+          }
+          
+          // Create canvas with resized image
+          const canvas = document.createElement('canvas');
+          canvas.width = sourceWidth;
+          canvas.height = sourceHeight;
+          const ctx = canvas.getContext('2d')!;
+          
+          // Draw with high quality
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight);
+          
+          let imageData = ctx.getImageData(0, 0, sourceWidth, sourceHeight);
           
           // Apply upscaling
-          const scale = options.scale || 1;
           if (scale > 1) {
             const algorithm = options.algorithm || 'bicubic';
             if (algorithm === 'nearest') {
